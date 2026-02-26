@@ -4,7 +4,7 @@ public enum SGLocalLoggerError: Error {
     case noLogsInRequestedInterval
 }
 
-public final class SGLocalLogger {
+public final class SGLocalLogger: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.sglocallogger.core")
     private let queueKey = DispatchSpecificKey<UInt8>()
     private let queueValue: UInt8 = 1
@@ -63,9 +63,29 @@ public final class SGLocalLogger {
         }
     }
 
+    @available(iOS 15.0, macOS 10.15, *)
+    public func flushAsync() async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                try? self.writer.flush()
+                continuation.resume()
+            }
+        }
+    }
+
     public func purgeExpiredLogs() {
         onQueueSync {
             purgeExpiredLogsLocked(referenceDate: Date())
+        }
+    }
+
+    @available(iOS 15.0, macOS 10.15, *)
+    public func purgeExpiredLogsAsync() async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                self.purgeExpiredLogsLocked(referenceDate: Date())
+                continuation.resume()
+            }
         }
     }
 
@@ -77,6 +97,25 @@ public final class SGLocalLogger {
                 throw SGLocalLoggerError.noLogsInRequestedInterval
             }
             return try exporter.export(files: selectedFiles, in: interval, filePrefix: config.filePrefix)
+        }
+    }
+
+    @available(iOS 15.0, macOS 10.15, *)
+    public func exportLogsAsync(in interval: DateInterval) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let allFiles = try self.writer.listLogFiles()
+                    let selectedFiles = self.exporter.selectFiles(in: allFiles, interval: interval)
+                    guard !selectedFiles.isEmpty else {
+                        throw SGLocalLoggerError.noLogsInRequestedInterval
+                    }
+                    let url = try self.exporter.export(files: selectedFiles, in: interval, filePrefix: self.config.filePrefix)
+                    continuation.resume(returning: url)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
     }
 
@@ -93,6 +132,30 @@ public final class SGLocalLogger {
                 filePrefix: config.filePrefix,
                 password: password
             )
+        }
+    }
+
+    @available(iOS 15.0, macOS 10.15, *)
+    public func exportEncryptedLogsAsync(in interval: DateInterval, password: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    let allFiles = try self.writer.listLogFiles()
+                    let selectedFiles = self.exporter.selectFiles(in: allFiles, interval: interval)
+                    guard !selectedFiles.isEmpty else {
+                        throw SGLocalLoggerError.noLogsInRequestedInterval
+                    }
+                    let url = try self.encryptedExporter.exportEncryptedArchive(
+                        files: selectedFiles,
+                        interval: interval,
+                        filePrefix: self.config.filePrefix,
+                        password: password
+                    )
+                    continuation.resume(returning: url)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
     }
 

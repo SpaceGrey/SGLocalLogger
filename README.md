@@ -13,6 +13,7 @@
 - 支持按指定时间范围导出日志为 `.zip`
 - 支持按密码导出 Apple 加密归档（`.aea`，仅苹果生态）
 - 对外 API 为同步接口（不暴露 async/await）
+- 同时提供耗时操作的 async 接口（导出/清理/flush）
 
 ## 环境要求
 
@@ -93,9 +94,13 @@ public final class SGLocalLogger {
 
     public func setConsoleMinimumLevel(_ level: LogLevel)
     public func flush()
+    public func flushAsync() async
     public func purgeExpiredLogs()
+    public func purgeExpiredLogsAsync() async
     public func exportLogs(in interval: DateInterval) throws -> URL
+    public func exportLogsAsync(in interval: DateInterval) async throws -> URL
     public func exportEncryptedLogs(in interval: DateInterval, password: String) throws -> URL
+    public func exportEncryptedLogsAsync(in interval: DateInterval, password: String) async throws -> URL
 }
 ```
 
@@ -117,6 +122,19 @@ do {
 }
 ```
 
+对应 async 版本：
+
+```swift
+Task {
+    do {
+        let zipURL = try await logger.exportLogsAsync(in: interval)
+        print("ZIP 导出成功: \(zipURL.path)")
+    } catch {
+        print("导出失败: \(error)")
+    }
+}
+```
+
 ## 密码导出（Apple 加密归档）
 
 > 该方式使用系统 `AppleArchive`，导出文件扩展名为 `.aea`，适合苹果生态内分发。
@@ -132,6 +150,22 @@ do {
     print("加密归档导出成功: \(encryptedURL.path)")
 } catch {
     print("导出失败: \(error)")
+}
+```
+
+对应 async 版本：
+
+```swift
+Task {
+    do {
+        let encryptedURL = try await logger.exportEncryptedLogsAsync(
+            in: interval,
+            password: "your-strong-password"
+        )
+        print("加密归档导出成功: \(encryptedURL.path)")
+    } catch {
+        print("导出失败: \(error)")
+    }
 }
 ```
 
