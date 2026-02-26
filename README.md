@@ -11,6 +11,7 @@
 - 支持日志文件大小轮转，避免单文件过大
 - 支持按保留时长自动清理旧日志
 - 支持按指定时间范围导出日志为 `.zip`
+- 支持按密码导出 Apple 加密归档（`.aea`，仅苹果生态）
 - 对外 API 为同步接口（不暴露 async/await）
 
 ## 环境要求
@@ -94,6 +95,7 @@ public final class SGLocalLogger {
     public func flush()
     public func purgeExpiredLogs()
     public func exportLogs(in interval: DateInterval) throws -> URL
+    public func exportEncryptedLogs(in interval: DateInterval, password: String) throws -> URL
 }
 ```
 
@@ -110,6 +112,24 @@ do {
     print("ZIP 导出成功: \(zipURL.path)")
 } catch SGLocalLoggerError.noLogsInRequestedInterval {
     print("该时间范围内没有日志")
+} catch {
+    print("导出失败: \(error)")
+}
+```
+
+## 密码导出（Apple 加密归档）
+
+> 该方式使用系统 `AppleArchive`，导出文件扩展名为 `.aea`，适合苹果生态内分发。
+
+```swift
+let interval = DateInterval(
+    start: Date().addingTimeInterval(-24 * 60 * 60),
+    end: Date()
+)
+
+do {
+    let encryptedURL = try logger.exportEncryptedLogs(in: interval, password: "your-strong-password")
+    print("加密归档导出成功: \(encryptedURL.path)")
 } catch {
     print("导出失败: \(error)")
 }

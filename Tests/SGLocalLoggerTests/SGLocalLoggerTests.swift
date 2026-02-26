@@ -94,6 +94,24 @@ final class SGLocalLoggerTests: XCTestCase {
         XCTAssertThrowsError(try logger.exportLogs(in: interval))
     }
 
+    func testExportEncryptedLogsCreatesArchiveFile() throws {
+        #if os(iOS)
+        let logger = makeLogger()
+        logger.log(.info, "encrypted-export-message")
+        logger.flush()
+
+        let interval = DateInterval(start: Date(timeIntervalSinceNow: -60), end: Date(timeIntervalSinceNow: 60))
+        let archiveURL = try logger.exportEncryptedLogs(in: interval, password: "test-password-123")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: archiveURL.path))
+        XCTAssertEqual(archiveURL.pathExtension, "aea")
+        let data = try Data(contentsOf: archiveURL)
+        XCTAssertGreaterThan(data.count, 16)
+        #else
+        throw XCTSkip("AppleArchive encrypted export test runs on iOS only.")
+        #endif
+    }
+
     private func makeLogger(
         consoleMinimumLevel: LogLevel = .info,
         retentionDuration: TimeInterval = 3600,

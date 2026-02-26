@@ -14,6 +14,7 @@ public final class SGLocalLogger {
     private let writer: LogWriter
     private let retention: LogRetention
     private let exporter: LogExport
+    private let encryptedExporter: AppleEncryptedArchiveExporter
 
     private var lastPurgeDate: Date
 
@@ -23,6 +24,7 @@ public final class SGLocalLogger {
         self.writer = LogWriter(config: configuration)
         self.retention = LogRetention()
         self.exporter = LogExport()
+        self.encryptedExporter = AppleEncryptedArchiveExporter()
         self.lastPurgeDate = .distantPast
         self.queue.setSpecific(key: queueKey, value: queueValue)
     }
@@ -75,6 +77,22 @@ public final class SGLocalLogger {
                 throw SGLocalLoggerError.noLogsInRequestedInterval
             }
             return try exporter.export(files: selectedFiles, in: interval, filePrefix: config.filePrefix)
+        }
+    }
+
+    public func exportEncryptedLogs(in interval: DateInterval, password: String) throws -> URL {
+        try onQueueSyncThrowing {
+            let allFiles = try writer.listLogFiles()
+            let selectedFiles = exporter.selectFiles(in: allFiles, interval: interval)
+            guard !selectedFiles.isEmpty else {
+                throw SGLocalLoggerError.noLogsInRequestedInterval
+            }
+            return try encryptedExporter.exportEncryptedArchive(
+                files: selectedFiles,
+                interval: interval,
+                filePrefix: config.filePrefix,
+                password: password
+            )
         }
     }
 
