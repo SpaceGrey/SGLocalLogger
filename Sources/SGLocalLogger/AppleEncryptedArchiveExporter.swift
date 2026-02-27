@@ -18,7 +18,11 @@ struct AppleEncryptedArchiveExporter {
         password: String
     ) throws -> URL {
         guard !password.isEmpty else {
-            throw CocoaError(.coderInvalidValue)
+            throw SGLocalLoggerError.invalidExportPassword
+        }
+        // Apple Archive scrypt 模式对密码有要求，过短会触发 ArchiveError.invalidValue
+        if password.count < 8 {
+            throw SGLocalLoggerError.invalidExportPassword
         }
 
         #if os(iOS) && canImport(AppleArchive) && canImport(System)
@@ -41,10 +45,11 @@ struct AppleEncryptedArchiveExporter {
             try fileManager.removeItem(at: archiveURL)
         }
 
+        // 使用文档默认 block size（1<<20），过小可能触发 invalidValue
         let encryptionContext = ArchiveEncryptionContext(
             profile: .hkdf_sha256_aesctr_hmac__scrypt__none,
             compressionAlgorithm: .lzfse,
-            compressionBlockSize: 64 * 1024
+            compressionBlockSize: 1 << 20
         )
         try encryptionContext.setPassword(password)
 

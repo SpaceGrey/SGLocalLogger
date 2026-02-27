@@ -137,7 +137,8 @@ Task {
 
 ## 密码导出（Apple 加密归档）
 
-> 该方式使用系统 `AppleArchive`，导出文件扩展名为 `.aea`，适合苹果生态内分发。
+> 该方式使用系统 `AppleArchive`，导出文件扩展名为 `.aea`，适合苹果生态内分发。  
+> **密码至少 8 个字符**，否则会抛出 `SGLocalLoggerError.invalidExportPassword` 或 `ArchiveError.invalidValue`。
 
 ```swift
 let interval = DateInterval(

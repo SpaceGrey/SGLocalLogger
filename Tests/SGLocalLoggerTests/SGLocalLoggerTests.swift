@@ -94,6 +94,39 @@ final class SGLocalLoggerTests: XCTestCase {
         XCTAssertThrowsError(try logger.exportLogs(in: interval))
     }
 
+    func testExportEncryptedLogsThrowsWhenPasswordEmpty() throws {
+        let logger = makeLogger()
+        logger.log(.info, "any")
+        logger.flush()
+        let interval = DateInterval(start: Date(timeIntervalSinceNow: -60), end: Date(timeIntervalSinceNow: 60))
+
+        XCTAssertThrowsError(try logger.exportEncryptedLogs(in: interval, password: "")) { error in
+            XCTAssertEqual(error as? SGLocalLoggerError, .invalidExportPassword)
+        }
+    }
+
+    func testExportEncryptedLogsThrowsWhenPasswordTooShort() throws {
+        let logger = makeLogger()
+        logger.log(.info, "any")
+        logger.flush()
+        let interval = DateInterval(start: Date(timeIntervalSinceNow: -60), end: Date(timeIntervalSinceNow: 60))
+
+        XCTAssertThrowsError(try logger.exportEncryptedLogs(in: interval, password: "1234567")) { error in
+            XCTAssertEqual(error as? SGLocalLoggerError, .invalidExportPassword)
+        }
+    }
+
+    func testExportEncryptedLogsThrowsWhenNoLogsInInterval() throws {
+        let logger = makeLogger()
+        logger.log(.info, "new-log")
+        logger.flush()
+        let interval = DateInterval(start: Date(timeIntervalSinceNow: -7200), end: Date(timeIntervalSinceNow: -3600))
+
+        XCTAssertThrowsError(try logger.exportEncryptedLogs(in: interval, password: "valid-password-8")) { error in
+            XCTAssertEqual(error as? SGLocalLoggerError, .noLogsInRequestedInterval)
+        }
+    }
+
     func testExportEncryptedLogsCreatesArchiveFile() throws {
         #if os(iOS)
         let logger = makeLogger()
@@ -107,6 +140,9 @@ final class SGLocalLoggerTests: XCTestCase {
         XCTAssertEqual(archiveURL.pathExtension, "aea")
         let data = try Data(contentsOf: archiveURL)
         XCTAssertGreaterThan(data.count, 16)
+        // 加密后不应以明文形式出现日志内容
+        let text = String(data: data, encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("encrypted-export-message"), "Archive should be encrypted, not plain text")
         #else
         throw XCTSkip("AppleArchive encrypted export test runs on iOS only.")
         #endif

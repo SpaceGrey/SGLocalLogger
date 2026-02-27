@@ -2,6 +2,8 @@ import Foundation
 
 public enum SGLocalLoggerError: Error {
     case noLogsInRequestedInterval
+    /// 加密导出时密码无效（如过短）。Apple Archive 建议密码至少 8 个字符。
+    case invalidExportPassword
 }
 
 public final class SGLocalLogger: @unchecked Sendable {
